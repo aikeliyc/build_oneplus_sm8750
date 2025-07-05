@@ -102,7 +102,7 @@ jobs:
                 echo 'KERNEL_TIME=Tue Dec 17 23:36:49 UTC 2024' >> $GITHUB_ENV
                 ;;
               oneplus_13t)
-                echo 'KERNEL_TIME=FriApr 25 01:56:53 UTC 2025' >> $GITHUB_ENV
+                echo 'KERNEL_TIME=Fri Apr 25 01:56:53 UTC 2025' >> $GITHUB_ENV
                 ;;
               oneplus_pad_2_pro)
                 echo 'KERNEL_TIME=Wed Dec 11 19:16:38 UTC 2024' >> $GITHUB_ENV
@@ -226,11 +226,7 @@ jobs:
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-           cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-           cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-           cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-           cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-
+           
            # Apply patches
            cd ./common
 
@@ -290,15 +286,6 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_ZSTD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_COMPRESSION=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_ZSTD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KERNEL_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig          
           # Add SUSFS configuration settings
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
