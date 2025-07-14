@@ -102,7 +102,7 @@ jobs:
                 echo 'KERNEL_TIME=Tue Dec 17 23:36:49 UTC 2024' >> $GITHUB_ENV
                 ;;
               oneplus_13t)
-                echo 'KERNEL_TIME=FriApr 25 01:56:53 UTC 2025' >> $GITHUB_ENV
+                echo 'KERNEL_TIME=Tue Jun 10 12:12:23 UTC 2025' >> $GITHUB_ENV
                 ;;
               oneplus_pad_2_pro)
                 echo 'KERNEL_TIME=Wed Dec 11 19:16:38 UTC 2024' >> $GITHUB_ENV
@@ -231,11 +231,6 @@ jobs:
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-           cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-           cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-           cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-           cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-
            # Apply patches
            cd ./common
 
@@ -247,7 +242,8 @@ jobs:
            patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
            cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
            patch -p1 -F 3 < syscall_hooks.patch
-
+           cp ../../SukiSU_patch/69_hide_stuff.patch ./
+           patch -p1 -F 3 < 69_hide_stuff.patch
            
            echo "完成"
 
@@ -293,17 +289,7 @@ jobs:
           # Add VFS configuration settings
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_ZSTD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_COMPRESSION=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F2FS_FS_ZSTD=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KERNEL_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig          
-          # Add SUSFS configuration settings
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -348,7 +334,7 @@ jobs:
               DEFAULT_SUFFIX="-android15-8-g013ec21bba94-abogki383916444-4k"
               ;;
             oneplus_13t)
-              DEFAULT_SUFFIX="-android15-8-gba3bcfd39307-abogki413159095-4k"
+              DEFAULT_SUFFIX="-android15-8-gd43086512890-abogki423825152-4k"
               ;;
             oneplus_pad_2_pro)
               DEFAULT_SUFFIX="-android15-8-g0261dbe3cf7e-ab12786384-4k"
