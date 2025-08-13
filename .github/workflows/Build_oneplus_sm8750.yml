@@ -2,36 +2,24 @@ name: Build_oneplus_sm8750
 on:
   workflow_dispatch:
     inputs:
-      REPO_MANIFEST:
-        description: "📝请选择要编译的机型："
-        required: true
+      FILE:
         type: choice
+        description: "配置文件"
+        required: true
+        default: oneplus_13t
         options:
-          - 'oneplus_13'
-          - 'oneplus_ace5_pro'
-          - 'oneplus_13t'
-          - 'oneplus_pad_2_pro'
-          - 'oneplus_pad_2_pro_New'
-          - 'oneplus_ace5_ultra'
-          - 'realme_GT7pro'
-          - 'realme_GT7pro_Speed'
-        default: 'oneplus_ace5_pro'
-
-      keep_original_settings:
-        description: "📝保持原内核名称及构建时间(不懂请保持默认)"
+         - oneplus_13t
+      BUILD_TIME:
+        type: string
+        description: "自定义构建时间 (输入F使用当前时间)"
         required: false
-        default: true
-        type: boolean
-
-      custom_kernel_suffix:
-        description: "✏️ 自定义内核名称- 仅在取消勾选'保持原设置'时有效(不懂请保持默认)"
+        default: "Tue Jun 10 12:12:23 UTC 2025"
+        
+      SUFFIX:
+        type: string
+        description: "自定义内核后缀 (不输入使用随机字符串)"
         required: false
-        default: ''
-      
-      custom_kernel_time:
-        description: "⏰ 自定义构建时间- 仅在取消勾选'保持原设置'时有效(不懂请保持默认)"
-        required: false
-        default: ''
+        default: "8-gd43086512890-abogki423825152-4k"
 
       enable_feature_z:
         description: "添加风驰驱动"
@@ -39,18 +27,28 @@ on:
         default: true
         type: boolean
 
-      enable_feature_b:
-         description: "添加BBR控制算法"
-         required: false
-         default: false
-         type: boolean
+      KSU_META:
+        type: string
+        description: "分支名(不可留空)/自定义版本标识(留空不修改)"
+        required: false
+        default: "susfs-main/Numbersf"
+        
+      SUSFS_CI:
+        type: choice
+        description: "下载SUSFS模块调用方式"
+        required: true
+        default: CI
+        options:
+          - CI
+          - Release
+          - NoN
       
        
 
 
 jobs:
   build:
-    name: Build_${{ github.event.inputs.REPO_MANIFEST }}
+    name: Build_${{ github.event.inputs.FILE }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,44 +58,11 @@ jobs:
         run: |
           echo "构建前磁盘空间："
           df -h
-      
-      - name: ⚙️ Set REPO_MANIFEST (设置对应机型配置文件)
-        id: set_manifest
-        run: |
-          cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/main.bin" ./
-          chmod +x main.bin
-          ./main.bin "setup_device_info" "${{ github.event.inputs.REPO_MANIFEST }}"
-          rm -rf ./main.bin
-          
-      - name: ⚙️ Set KERNEL_TIME (设置构建时间)
-        id: set_kernel_time
-        run: |
-          if [ "$KEEP_ORIGINAL" = "false" ] && [ -n "$CUSTOM_TIME" ]; then
-            echo "使用自定义构建时间: $CUSTOM_TIME"
-            echo "KERNEL_TIME=$CUSTOM_TIME" >> $GITHUB_ENV
-          else
-            case "$DEVICES_NAME" in
-              oneplus_13 | oneplus_ace5_pro | realme_GT7pro | realme_GT7pro_Speed)
-                echo 'KERNEL_TIME=Tue Dec 17 23:36:49 UTC 2024' >> $GITHUB_ENV
-                ;;
-              oneplus_13t)
-                echo 'KERNEL_TIME=FriApr 25 01:56:53 UTC 2025' >> $GITHUB_ENV
-                ;;
-              oneplus_pad_2_pro)
-                echo 'KERNEL_TIME=Wed Dec 11 19:16:38 UTC 2024' >> $GITHUB_ENV
-                ;;
-              oneplus_ace5_ultra)
-                echo 'KERNEL_TIME=Fri Apr 18 19:35:07 UTC 2025' >> $GITHUB_ENV
-                ;;
-              oneplus_pad_2_pro_New)
-                echo 'KERNEL_TIME=Tue Mar 4 09:04:13 UTC 2025' >> $GITHUB_ENV
-                ;;
-            esac
-          fi
+                
 
       - name: ⚙️ Set device-specific CCACHE_DIR (设置对应机型Cceche路径)
         run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${REPO_MANIFEST}" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache_${FILE}" >> $GITHUB_ENV
 
       - name: 📦 Configure Git (设置下载账户)
         run: |
@@ -141,9 +106,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ env.REPO_MANIFEST }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ env.FILE }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ env.REPO_MANIFEST }}-
+            ccache-${{ runner.os }}-${{ env.FILE }}-
             ccache-${{ runner.os }}-
 
       - name: 📥 Init ccache (如果是第一次运行则初始化Cceche)
@@ -178,28 +143,119 @@ jobs:
       - name: 📥 Initialize repo and sync (初始化repo并同步内核源码)
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/showdo/kernel_manifest.git -b refs/heads/oneplus/sm8750 -m ${REPO_MANIFEST}.xml --depth=1
+         repo init -u https://github.com/showdo/kernel_manifest.git -b refs/heads/oneplus/sm8750 -m oneplus_13t.xml --depth=1
          repo --trace sync -c -j$(nproc --all) --no-tags
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
-      - name: ⚙️ Set SuKiSU Ultra (设置SuKiSU Ultra)
+      - name: Custom Kernel Suffix if set
+        if: ${{ github.event.inputs.SUFFIX != '' }}
         run: |
-            mkdir -p kernel_workspace/kernel_platform
-            cd kernel_workspace/kernel_platform
-            
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" -o setup.sh && bash setup.sh susfs-main
-            cd KernelSU
-            KSU_VERSION=$(expr $(git rev-list --count main 2>/dev/null || echo 13000) + 10700)
-            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-             cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/setup.bin" ./
-            chmod +x setup.bin
-            if [ ! -f "kernel/Makefile" ]; then
-              echo "::error ::kernel/Makefile"
-              ls -la
-              exit 1
+          cd kernel_workspace
+          SUFFIX="${{ github.event.inputs.SUFFIX }}"
+          KANDROID_VERSION="${{ env.KANDROID_VERSION }}"
+          FAST_BUILD="${{ github.event.inputs.FAST_BUILD }}"
+
+          for path in \
+            kernel_platform/common/scripts/setlocalversion \
+            kernel_platform/msm-kernel/scripts/setlocalversion \
+            kernel_platform/external/dtc/scripts/setlocalversion; do
+
+            [ -f "$path" ] || continue
+
+            echo "Modifying: $path"
+
+            # Remove -dirty
+            sed -i 's/ -dirty//g' "$path"
+            sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$path"
+
+            if grep -q 'KERNELVERSION.*scm_version' "$path"; then
+              echo "Detected NEW setlocalversion format"
+              sed -i "s|echo \"\${KERNELVERSION}.*scm_version}\"|echo \"\${KERNELVERSION}-${KANDROID_VERSION}-${SUFFIX}\"|" "$path"
+
+            elif grep -q 'echo "\$res"' "$path"; then
+              echo "Detected OLD setlocalversion format"
+              if [ "$FAST_BUILD" = "true" ]; then
+                echo "FAST_BUILD enabled: using static res"
+                sed -i "s/^res=.*/res=\"-${KANDROID_VERSION}-${SUFFIX}\"/" "$path"
+              else
+                echo "Standard build: injecting suffix via cut/echo"
+                if [[ -f ./kernel_platform/build_with_bazel.py ]]; then
+                  echo "使用官方脚本编译且当使用 build_with_bazel 时，可能受特殊符号数量限制，编译失败请修改"
+                  echo "When using the official script and building with build_with_bazel, the build may fail due to a limit on the number of special characters. Please modify the configuration if that happens."
+                fi
+                tac "$path" | sed "0,/echo \"\\\$res\"/s//res=\\\$(echo \\\$res | cut -d- -f1-2)-${SUFFIX}; echo \"\\\$res\";/" | tac > "$path.tmp" && mv "$path.tmp" "$path"
+              fi
+            else
+              echo "Unknown format, appending echo manually"
+              echo "echo \"\$res-${SUFFIX}\"" >> "$path"
             fi
-            ./setup.bin
+
+            chmod +x "$path"
+          done
+
+          git add -A
+          git commit -m "Custom suffix & removed -dirty"       
+         
+      - name: Add SukiSU Ultra
+        run: |
+          cd kernel_workspace/kernel_platform
+
+          META="${{ github.event.inputs.KSU_META }}"
+          BRANCH_NAME="${META%%/*}"
+          CUSTOM_TAG="${META#*/}"
+          echo "分支名: $BRANCH_NAME"
+          echo "自定义版本标识: $CUSTOM_TAG"
+
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s "$BRANCH_NAME"
+          cd ./KernelSU
+
+          KSU_API_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/$BRANCH_NAME/kernel/Makefile" | \
+            grep -m1 "KSU_VERSION_API :=" | awk -F'= ' '{print $2}' | tr -d '[:space:]')
+
+          if [[ -z "$KSU_API_VERSION" || "$(printf '%s\n' "$KSU_API_VERSION" "3.1.7" | sort -V | head -n1)" != "3.1.7" ]]; then
+            KSU_API_VERSION="3.1.7"
+          fi
+
+          echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+
+          GIT_HASH=$(git rev-parse --short HEAD)
+          echo "GIT_HASH=$GIT_HASH"
+
+          if [[ -z "$CUSTOM_TAG" || "$CUSTOM_TAG" == "$BRANCH_NAME" ]]; then
+            VERSION_FULL="v$KSU_API_VERSION-$GIT_HASH@$BRANCH_NAME"
+          else
+            VERSION_FULL="v$KSU_API_VERSION-$CUSTOM_TAG@$BRANCH_NAME[$GIT_HASH]"
+          fi
+
+          sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
+          sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
+          sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
+
+          VERSION_DEFINITIONS=$(cat <<EOF
+            define get_ksu_version_full
+            $VERSION_FULL
+            endef
+
+            KSU_VERSION_API := $KSU_API_VERSION
+            KSU_VERSION_FULL := $VERSION_FULL
+          EOF
+          )
+
+          awk -v def="$VERSION_DEFINITIONS" '
+            /REPO_OWNER :=/ {print; print def; inserted=1; next}
+            1
+            END {if (!inserted) print def}
+          ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
+
+          KSU_VERSION=$(expr $(git rev-list --count main 2>/dev/null || echo 13000) + 10700)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+
+          echo "::group::最终 Makefile 中版本信息及部分调试结果预览"
+          grep -A10 "REPO_OWNER" kernel/Makefile
+          grep "KSU_VERSION_FULL" kernel/Makefile
+          echo "::endgroup::"
+          
       - name: 🔧 Set up SUSFS (配置 SUSFS)
         run: |
            cd kernel_workspace
@@ -210,42 +266,15 @@ jobs:
             cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
             cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+            sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-android15-6.6.patch
+            sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-android15-6.6.patch
             
-            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-            
-            # Apply patches
-            cd ./common
-            if [ "$DEVICES_NAME" != "oneplus_ace5_ultra" ]; then
-                files=(
-                    "lib/lz4/lz4_compress.c"
-                    "lib/lz4/lz4_decompress.c"
-                    "lib/lz4/lz4defs.h"
-                    "lib/lz4/lz4hc_compress.c"
-                )
-                for file in "${files[@]}"; do
-                    if [ -e "$file" ]; then
-                        rm "$file"
-                    fi
-                done
-            
-                cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/main.bin" ./
-                chmod +x main.bin
-                ./main.bin "setup_lz4"
-                rm -rf ./main.bin
-            fi
-            
-            if [ "${REPO_MANIFEST}" != "oneplus_pad_2_pro" ] && [ "${REPO_MANIFEST}" != "oneplus_ace5_ultra" ]; then
-                sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-android15-6.6.patch
-                sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-android15-6.6.patch
-            fi
-            
+            cd common
             patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
             cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
             patch -p1 -F 3 < syscall_hooks.patch
-            
+            cp ../../SukiSU_patch/69_hide_stuff.patch ./
+            patch -p1 -F 3 < 69_hide_stuff.patch
             echo "完成"
 
 
@@ -275,77 +304,74 @@ jobs:
           echo "HMBird补丁应用完成"
 
           
-      - name: 🔧 Set gki_defconfig (设置编译配置)
-        env:
-          ENABLE_B: ${{ github.event.inputs.enable_feature_b }}       
+      - name: Add Configuration Settings
         run: |
           cd kernel_workspace/kernel_platform
-          cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/main.bin" ./
-          chmod +x main.bin
-          ./main.bin "setup_gki_config"
-          rm -rf ./main.bin
-          #Remove check_defconfig
-          sudo sed -i 's/check_defconfig//' ./common/build.config.gki
-          cd common
-          git add -A && git commit -a -m "BUILD Kernel"
+          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+          KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
 
-      - name: 🔧 Set Kernel name (设置内核名称)
-        env:
-          REPO_MANIFEST: ${{ github.event.inputs.REPO_MANIFEST }}
-          KEEP_ORIGINAL: ${{ github.event.inputs.keep_original_settings }}
-          CUSTOM_SUFFIX: ${{ github.event.inputs.custom_kernel_suffix }}
-        run: |
-          cd kernel_workspace/kernel_platform
+          # SukiSU Ultra配置
+          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
 
-          case "$DEVICES_NAME" in
-            oneplus_13 | oneplus_ace5_pro | realme_GT7pro | realme_GT7pro_Speed)
-              DEFAULT_SUFFIX="-android15-8-g013ec21bba94-abogki383916444-4k"
-              ;;
-            oneplus_13t)
-              DEFAULT_SUFFIX="-android15-8-gba3bcfd39307-abogki413159095-4k"
-              ;;
-            oneplus_pad_2_pro)
-              DEFAULT_SUFFIX="-android15-8-g0261dbe3cf7e-ab12786384-4k"
-              ;;
-            oneplus_ace5_ultra)
-              DEFAULT_SUFFIX="-android15-8-gfc70d29746a7-abogki412262948-4k"
-              ;;
-            oneplus_pad_2_pro_New)
-              DEFAULT_SUFFIX="-android15-8-g302cb15749a8-ab13157299-4k"
-              ;;
-          esac
-          
-          echo "当前机型: $DEVICES_NAME"
-          echo "保持原设置: $KEEP_ORIGINAL"
-          echo "自定义后缀: $CUSTOM_SUFFIX"
-          echo "默认后缀: $DEFAULT_SUFFIX"
-          
-          if [ "$KEEP_ORIGINAL" = "false" ]; then
-            if [ -n "$CUSTOM_SUFFIX" ]; then
-              DEFAULT_SUFFIX="$CUSTOM_SUFFIX"
-              echo "使用自定义内核名称: $DEFAULT_SUFFIX"
-            else
-              echo "使用机型默认内核名称: $DEFAULT_SUFFIX"
-            fi
-          else
-            echo "保持原内核名称设置"
+          # KPM配置
+          if [ "${{ github.event.inputs.KPM }}" = "true" ]; then
+            echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
           fi
-          ESCAPED_SUFFIX=$(printf '%s\n' "$DEFAULT_SUFFIX" | sed 's:[\/&]:\\&:g')
-          cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/main.bin" ./
-          chmod +x main.bin
-          ./main.bin "setup_suffix" "${DEVICE_MOD}"
-          rm -rf ./main.bin
-          sudo sed -i "s/-4k/$ESCAPED_SUFFIX/g" ./common/arch/arm64/configs/gki_defconfig
-          sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
+
+          # VFS配置
+          if [ "${{ github.event.inputs.VFS }}" = "true" ]; then
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
+          else
+            echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KPROBES=y" >> "$CONFIG_FILE"
+          fi
+
+          # SUSFS配置
+          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+
+
+          # 移除构建审查
+          sed -i 's/check_defconfig//' ./common/build.config.gki
           
-      - name: 🔧 Add sched_ext (写入风驰补丁)
-        if: ${{inputs.enable_feature_z }}
+      - name: Custom BUILD_TIME
+        shell: bash
         run: |
-         cd kernel_workspace/kernel_platform/
-         git clone https://github.com/showdo/sched_ext.git
-         cp -r ./sched_ext/* ./common/kernel/sched
-         rm -rf ./sched_ext/.git
-         cd common/kernel/sched  
+          INPUT_TIME="${{ github.event.inputs.BUILD_TIME }}"
+          if [[ -n "$INPUT_TIME" && "$INPUT_TIME" != *[Ff]* ]]; then
+            DATESTR="$INPUT_TIME"
+            echo "Using input BUILD_TIME: $DATESTR"
+          else
+            DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
+            echo "Using UTC time as fallback: $DATESTR"
+          fi
+          echo "KBUILD_BUILD_TIMESTAMP=${DATESTR}" >> "$GITHUB_ENV"
+          echo "KBUILD_BUILD_VERSION=1" >> "$GITHUB_ENV"
+          cd kernel_workspace/kernel_platform/
+          for f in common/scripts/mkcompile_h msm-kernel/scripts/mkcompile_h; do
+            if [ -f "$f" ]; then
+              echo "Patching mkcompile_h with BUILD_TIME=$DATESTR"
+              if grep -q 'UTS_VERSION=' "$f"; then
+                perl -pi -e "s{UTS_VERSION=\"\\\$\\(.*?\\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $DATESTR\"}" "$f"
+              else
+                perl -0777 -pi -e "s{cat <<EOF}{cat <<EOF\n#undef UTS_VERSION\n#define UTS_VERSION \"#1 SMP PREEMPT $DATESTR\" } unless /UTS_VERSION/" "$f"
+              fi
+            fi
+          done
 
       - name: 🔨 Build Kernel (构建内核)
         run: |
