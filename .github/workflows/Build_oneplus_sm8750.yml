@@ -2,27 +2,23 @@ name: Build_oneplus_sm8750
 on:
   workflow_dispatch:
     inputs:
-      FILE:
-        type: choice
-        description: "配置文件"
+      REPO_MANIFEST:
+        description: "📝请选择要编译的机型："
         required: true
-        default: oneplus_pad_2_pro
+        type: choice
         options:
-         - oneplus_pad_2_pro
-      BUILD_TIME:
-        type: string
-        description: "自定义构建时间 (输入F使用当前时间)"
-        required: false
-        default: "Tue Jun 3 03:22:33 UTC 2025"
-        
-      SUFFIX:
-        type: string
-        description: "自定义内核后缀 (不输入使用随机字符串)"
-        required: false
-        default: "8-g7b1f455c7143-ab13591283-4k"
+          - 'oneplus_13'
+          - 'oneplus_ace5_pro'
+          - 'oneplus_13t'
+          - 'oneplus_pad_2_pro'
+          - 'oneplus_pad_2_pro_New'
+          - 'oneplus_ace5_ultra'
+          - 'realme_GT7pro'
+          - 'realme_GT7pro_Speed'
+        default: 'oneplus_ace5_pro'
 
-      enable_feature_z:
-        description: "添加风驰驱动"
+      keep_original_settings:
+        description: "📝保持原内核名称及构建时间(不懂请保持默认)"
         required: false
         default: true
         type: boolean
@@ -31,17 +27,17 @@ on:
         type: string
         description: "分支名(不可留空)/自定义版本标识(留空不修改)"
         required: false
-        default: "susfs-main/"
-        
-      SUSFS_CI:
-        type: choice
-        description: "下载SUSFS模块调用方式"
-        required: true
-        default: CI
-        options:
-          - CI
-          - Release
-          - NoN
+        default: "susfs-main/Numbersf"
+      BUILD_TIME:
+        type: string
+        description: "自定义构建时间 (输入F使用当前时间)"
+        required: false
+        default: "Sun Jun 15 14:56:02 UTC 2025"
+      SUFFIX:
+        type: string
+        description: "自定义内核后缀 (不输入使用随机字符串)"
+        required: false
+        default: ""
       VFS:
         type: boolean
         description: "是否启用手动钩子(VFS)？"
@@ -52,12 +48,13 @@ on:
         description: "是否启用内核模块(KPM)？"
         required: true
         default: true
+      
        
 
 
 jobs:
   build:
-    name: Build_${{ github.event.inputs.FILE }}
+    name: Build_${{ github.event.inputs.REPO_MANIFEST }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,11 +64,44 @@ jobs:
         run: |
           echo "构建前磁盘空间："
           df -h
-                
+      
+      - name: ⚙️ Set REPO_MANIFEST (设置对应机型配置文件)
+        id: set_manifest
+        run: |
+          cp "${GITHUB_WORKSPACE}/.github/workflows/Bin/main.bin" ./
+          chmod +x main.bin
+          ./main.bin "setup_device_info" "${{ github.event.inputs.REPO_MANIFEST }}"
+          rm -rf ./main.bin
+          
+      - name: ⚙️ Set KERNEL_TIME (设置构建时间)
+        id: set_kernel_time
+        run: |
+          if [ "$KEEP_ORIGINAL" = "false" ] && [ -n "$CUSTOM_TIME" ]; then
+            echo "使用自定义构建时间: $CUSTOM_TIME"
+            echo "KERNEL_TIME=$CUSTOM_TIME" >> $GITHUB_ENV
+          else
+            case "$DEVICES_NAME" in
+              oneplus_13 | oneplus_ace5_pro | realme_GT7pro | realme_GT7pro_Speed)
+                echo 'KERNEL_TIME=Tue Dec 17 23:36:49 UTC 2024' >> $GITHUB_ENV
+                ;;
+              oneplus_13t)
+                echo 'KERNEL_TIME=FriApr 25 01:56:53 UTC 2025' >> $GITHUB_ENV
+                ;;
+              oneplus_pad_2_pro)
+                echo 'KERNEL_TIME=Wed Dec 11 19:16:38 UTC 2024' >> $GITHUB_ENV
+                ;;
+              oneplus_ace5_ultra)
+                echo 'KERNEL_TIME=Fri Apr 18 19:35:07 UTC 2025' >> $GITHUB_ENV
+                ;;
+              oneplus_pad_2_pro_New)
+                echo 'KERNEL_TIME=Tue Mar 4 09:04:13 UTC 2025' >> $GITHUB_ENV
+                ;;
+            esac
+          fi
 
       - name: ⚙️ Set device-specific CCACHE_DIR (设置对应机型Cceche路径)
         run: |
-          echo "CCACHE_DIR=$HOME/.ccache_${FILE}" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache_${REPO_MANIFEST}" >> $GITHUB_ENV
 
       - name: 📦 Configure Git (设置下载账户)
         run: |
@@ -115,9 +145,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ env.FILE }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ env.REPO_MANIFEST }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ env.FILE }}-
+            ccache-${{ runner.os }}-${{ env.REPO_MANIFEST }}-
             ccache-${{ runner.os }}-
 
       - name: 📥 Init ccache (如果是第一次运行则初始化Cceche)
@@ -152,7 +182,7 @@ jobs:
       - name: 📥 Initialize repo and sync (初始化repo并同步内核源码)
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/showdo/kernel_manifest.git -b refs/heads/oneplus/sm8750 -m oneplus_13t.xml --depth=1
+         repo init -u https://github.com/showdo/kernel_manifest.git -b refs/heads/oneplus/sm8750 -m ${REPO_MANIFEST}.xml --depth=1
          repo --trace sync -c -j$(nproc --all) --no-tags
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -204,7 +234,7 @@ jobs:
           done
 
           git add -A
-          git commit -m "Custom suffix & removed -dirty"       
+          git commit -m "Custom suffix & removed -dirty"
          
       - name: Add SukiSU Ultra
         run: |
@@ -275,10 +305,17 @@ jobs:
             cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
             cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-            sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-android15-6.6.patch
-            sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-android15-6.6.patch
             
-            cd common
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+            
+            cd ./common
+            
+                sed -i 's/-32,12 +32,38/-32,11 +32,37/g' 50_add_susfs_in_gki-android15-6.6.patch
+                sed -i '/#include <trace\/hooks\/fs.h>/d' 50_add_susfs_in_gki-android15-6.6.patch
+            
             patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
             cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
             patch -p1 -F 3 < syscall_hooks.patch
@@ -352,11 +389,8 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-
-
-          # 移除构建审查
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          
+
       - name: Custom BUILD_TIME
         shell: bash
         run: |
@@ -381,6 +415,15 @@ jobs:
               fi
             fi
           done
+          
+      - name: 🔧 Add sched_ext (写入风驰补丁)
+        if: ${{inputs.enable_feature_z }}
+        run: |
+         cd kernel_workspace/kernel_platform/
+         git clone https://github.com/showdo/sched_ext.git
+         cp -r ./sched_ext/* ./common/kernel/sched
+         rm -rf ./sched_ext/.git
+         cd common/kernel/sched  
 
       - name: 🔨 Build Kernel (构建内核)
         run: |
