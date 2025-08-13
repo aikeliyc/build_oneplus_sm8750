@@ -6,20 +6,20 @@ on:
         type: choice
         description: "配置文件"
         required: true
-        default: oneplus_13t
+        default: oneplus_pad_2_pro
         options:
-         - oneplus_13t
+         - oneplus_pad_2_pro
       BUILD_TIME:
         type: string
         description: "自定义构建时间 (输入F使用当前时间)"
         required: false
-        default: "Tue Jun 10 12:12:23 UTC 2025"
+        default: "Tue Jun 3 03:22:33 UTC 2025"
         
       SUFFIX:
         type: string
         description: "自定义内核后缀 (不输入使用随机字符串)"
         required: false
-        default: "8-gd43086512890-abogki423825152-4k"
+        default: "8-g7b1f455c7143-ab13591283-4k"
 
       enable_feature_z:
         description: "添加风驰驱动"
@@ -31,7 +31,7 @@ on:
         type: string
         description: "分支名(不可留空)/自定义版本标识(留空不修改)"
         required: false
-        default: "susfs-main/Numbersf"
+        default: "susfs-main/"
         
       SUSFS_CI:
         type: choice
